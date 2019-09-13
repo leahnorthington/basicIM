@@ -6,7 +6,7 @@ def main():
 
     # add first required argument, which can either be specified
     # via -s or --server. Store the result in a variable called servername
-    parser.add_argument('-s', '--server', dest='servername', help='hostname of machine running BasicIM server', required=True)
+    parser.add_argument('-s', '--server', dest='server', help='hostname of machine running BasicIM server', required=True)
     
     # add second required argument, which can either be specified
     # via -n or --nickname. Store the result in a variable called nickname
