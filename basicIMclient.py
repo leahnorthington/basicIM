@@ -1,7 +1,12 @@
 import argparse
 import socket
+import struct
+import sys
+import select
+import string
+import basicIM_pb2
 
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # add first required argument, which can either be specified
@@ -18,29 +23,49 @@ def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # connect to the host name specified by -s on port 9999 
-    s.connect( (args.server,9999) )
-    # let's send something
-    for i in range(0,10):    
-        s.send(b'hello world!\n')
-    # close the connections.close()
+    try:
+        s.connect( (args.server,9999) )
+    except:
+        #print("Unable to connect")
+        sys.exit()
 
+    #print("Connected to server! Start sending messages now...")
 
-#The client should first connect to the BasicIM server, which should already be running (more on the server below) and listening 
-#for incoming connections on TCP port 9999.  Once connected, BasicIM should read from standard input (essentially, the keyboard) 
-#and send all inputted text to the BasicIM server (which you'll also write).  It should also receive messages, which are serialized 
-#with Google Protocol Buffers (Links to an external site.) -- thus, your program should deserialize these messages.  
-#BasicIM messages, which are serialized with Google Protocol Buffers, consist of:
-        #the nickname of the sender
-        #the contents of the instant message
-#Note that in BasicIM, all messages are "broadcast", meaning that if one client sends a message, all other online clients should 
-#receive that message.  There are no direct messages in BasicIM.
+    #name = args.nickname
 
-#When your BasicIM client receives a message from the server, it should deserialize it to discern the nickname of the sender and 
-#the contents of the instant message.  It should then print out (i.e., send to standard output) the following:
-        #nickname: message 
-#For example, if the user with the nickname "CoolMicah" typed a message, "Wow, COSC435 is REALLY great!", then all other BasicIM 
-#clients should output:
-        #CoolMicah: Wow, COSC435 is REALLY great!
-        
-if __name__ == '__main__':    
-        main()
+    while True:
+        socket_list = [sys.stdin, s]
+        read_sockets, write_socket, error_socket = select.select(socket_list,[],[]) 
+        for sock in read_sockets:
+            # data coming from another connection
+            if sock is s:
+                msg_len = sock.recv(4, socket.MSG_WAITALL)
+                #print("packed message length")
+                #print(msg_len)
+                msg_size = struct.unpack('i', msg_len)[0]
+                #print("unpacked message length")
+                #print(msg_size)
+                message = basicIM_pb2.basicIMmessage()
+                #message = sock.recv(msg_size, socket.MSG_WAITALL) # gives serialized protobuf
+                message.ParseFromString(sock.recv(msg_size, socket.MSG_WAITALL)) # gives int num of bytes of protobuf
+                print( "%s: %s\n" % (message.name, message.contents), flush=True )
+                #print("serialized message")
+                #print(serialized_message)
+                #print(message.ParseFromString(sock.recv(msg_size, socket.MSG_WAITALL)))
+                #print(message.name) # prints out num bytes
+            # this user has entered a message
+            else:
+                message = basicIM_pb2.basicIMmessage()
+                message.name = args.nickname
+                message.contents = sys.stdin.readline()
+                # know that integer takes 4 bytes, so server should unpack and listen for 4 bytes
+                serialized = message.SerializeToString()   # convert to bytes
+                #print("seralized message")
+                #print(serialized)
+                msg_length = struct.pack('i', len(serialized))
+                #print("message length")
+                #print(msg_length)
+                s.send(msg_length)
+                s.send(serialized)
+
+    

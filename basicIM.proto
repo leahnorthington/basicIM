@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+package basicIM;
+
+message basicIMmessage {
+        required string name = 1;
+        required string contents = 2;
+}
